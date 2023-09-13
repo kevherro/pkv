@@ -13,9 +13,8 @@ Prerequisites:
   Follow [these instructions](http://golang.org/doc/code.html) to prepare
   the environment.
 
-- [golangci-lint](https://github.com/golangci/golangci-lint)
-
-- [errcheck](https://github.com/kisielk/errcheck)
+- [golangci-lint](https://github.com/golangci/golangci-lint) 
+  and [errcheck](https://github.com/kisielk/errcheck)
 
 To build and install it:
 
