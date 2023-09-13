@@ -1,5 +1,5 @@
 [![Github Action CI](https://github.com/kevherro/pkv/workflows/ci/badge.svg)](https://github.com/kevherro/pkv/actions)
-[![Go Reference](https://pkg.go.dev/badge/github.com/google/pkv/profile.svg)](https://pkg.go.dev/github.com/google/pkv/profile)
+[![Go Reference](https://pkg.go.dev/badge/github.com/kevherro/pkv/profile.svg)](https://pkg.go.dev/github.com/kevherro/pkv/profile)
 
 # Introduction
 
