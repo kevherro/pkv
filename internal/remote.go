@@ -14,18 +14,46 @@ type Remote struct {
 	timeout time.Duration
 }
 
-func (r *Remote) Get(endpoint string) (string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), r.timeout)
-	defer cancel()
-
-	resp, err := r.request(ctx, http.MethodGet, endpoint, nil)
-	if err != nil {
-		return "", fmt.Errorf("remote get: %v", err)
+func NewRemote(baseURL string, timeout time.Duration, client *http.Client) *Remote {
+	if client == nil {
+		client = &http.Client{}
 	}
-	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("remote get: received non-OK status: %d %s", resp.StatusCode, resp.Status)
+	return &Remote{
+		client:  client,
+		baseURL: baseURL,
+		timeout: timeout,
+	}
+}
+
+func (r *Remote) Delete(endpoint string) error {
+	_, err := r.requestWithExpectedStatus(http.MethodDelete, endpoint, nil, []int{http.StatusNoContent, http.StatusNotFound})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (r *Remote) Put(endpoint string, contentLength int64, body io.Reader) (http.Header, error) {
+	req, err := r.newRequest(http.MethodPut, endpoint, body)
+	if err != nil {
+		return nil, err
+	}
+	req.ContentLength = contentLength
+
+	resp, err := r.doRequestWithExpectedStatus(req, []int{http.StatusCreated, http.StatusNotFound})
+	if err != nil {
+		return nil, err
+	}
+
+	return resp.Header, nil
+}
+
+func (r *Remote) Get(endpoint string) (string, error) {
+	resp, err := r.requestWithExpectedStatus(http.MethodGet, endpoint, nil, []int{http.StatusOK})
+	if err != nil {
+		return "", err
 	}
 
 	body, err := io.ReadAll(resp.Body)
@@ -37,33 +65,49 @@ func (r *Remote) Get(endpoint string) (string, error) {
 }
 
 func (r *Remote) Head(endpoint string) (http.Header, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), r.timeout)
-	defer cancel()
-
-	resp, err := r.request(ctx, http.MethodHead, endpoint, nil)
+	resp, err := r.requestWithExpectedStatus(http.MethodHead, endpoint, nil, []int{http.StatusOK, http.StatusNotFound})
 	if err != nil {
-		return nil, fmt.Errorf("remote head: %v", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode == http.StatusNotFound {
-		return nil, fmt.Errorf("remote head: resource not found")
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("remote head: received non-OK status: %d %s", resp.StatusCode, resp.Status)
+		return nil, err
 	}
 
 	return resp.Header, nil
 }
 
-func (r *Remote) request(ctx context.Context, method string, endpoint string, body io.Reader) (*http.Response, error) {
-	url := r.baseURL + endpoint
-
-	req, err := http.NewRequestWithContext(ctx, method, url, body)
+func (r *Remote) requestWithExpectedStatus(method string, endpoint string, body io.Reader, expectedStatusCodes []int) (*http.Response, error) {
+	req, err := r.newRequest(method, endpoint, body)
 	if err != nil {
-		return nil, fmt.Errorf("request: %v", err)
+		return nil, err
 	}
 
-	return r.client.Do(req)
+	return r.doRequestWithExpectedStatus(req, expectedStatusCodes)
+}
+
+func (r *Remote) newRequest(method string, endpoint string, body io.Reader) (*http.Request, error) {
+	url := r.baseURL + endpoint
+
+	ctx, cancel := context.WithTimeout(context.Background(), r.timeout)
+	defer cancel()
+
+	return http.NewRequestWithContext(ctx, method, url, body)
+}
+
+func (r *Remote) doRequestWithExpectedStatus(req *http.Request, expectedStatusCodes []int) (*http.Response, error) {
+	resp, err := r.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("%s request to %s: %v", req.Method, req.URL, err)
+	}
+
+	defer func() {
+		if err != nil {
+			resp.Body.Close()
+		}
+	}()
+
+	for _, statusCode := range expectedStatusCodes {
+		if resp.StatusCode == statusCode {
+			return resp, nil
+		}
+	}
+
+	return resp, fmt.Errorf("%s request to %s: unexpected status code %d", req.Method, req.URL, resp.StatusCode)
 }
