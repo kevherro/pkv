@@ -4,8 +4,6 @@ on:
     branches:
       - master
   pull_request:
-  schedule:
-  - cron: '0 2 * * *' # Run every day, at 2AM UTC.
 env:
   GOPATH: ${{ github.workspace }}
   WORKING_DIR: ./src/github.com/kevherro/pkv
@@ -18,7 +16,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go: ['1.20', '1.21', 'tip']
+        go: ['1.21', 'tip']
         # Supported macOS versions can be found in
         # https://github.com/actions/virtual-environments#available-environments.
         os: ['macos-13']
@@ -79,7 +77,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go: ['1.20', '1.21', 'tip']
+        go: ['1.21', 'tip']
         os: ['ubuntu-22.04', 'ubuntu-20.04']
     steps:
       - name: Update Go version using setup-go
